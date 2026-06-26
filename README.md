@@ -1,4 +1,3 @@
-﻿# DOCMIND_AI
 # 🧠 DocMind AI
 
 <p align="center">
@@ -217,7 +216,10 @@ Create a `.env` file:
 
 ```env
 GROQ_API_KEY=your_groq_api_key
-LANGSMITH_API_KEY=your_langsmith_api_key
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=yout_langchain_api_key
+LANGCHAIN_PROJECT=doc_mind_ai
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 ```
 
 ## Run Application
