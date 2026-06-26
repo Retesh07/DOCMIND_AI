@@ -1,23 +1,5 @@
 # 🧠 DocMind AI
 
-<p align="center">
-  <img src="screenshots/ui_chat.png" width="900">
-</p>
-
-<p align="center">
-Agentic Retrieval-Augmented Generation (RAG) System built with LangGraph, ChromaDB, Groq LLMs, LangSmith, and RAGAS.
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/LangGraph-Agentic%20Workflow-blue">
-  <img src="https://img.shields.io/badge/ChromaDB-Vector%20Database-green">
-  <img src="https://img.shields.io/badge/RAGAS-Evaluation-orange">
-  <img src="https://img.shields.io/badge/LangSmith-Observability-purple">
-  <img src="https://img.shields.io/badge/Streamlit-Frontend-red">
-</p>
-
----
-
 # 🚀 Overview
 
 DocMind AI is an Agentic Retrieval-Augmented Generation (RAG) system that enables users to upload PDF documents and interact with them through natural language queries.
