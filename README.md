@@ -2,11 +2,16 @@
 
 # 🚀 Overview
 
-DocMind AI is an Agentic Retrieval-Augmented Generation (RAG) system that enables users to upload PDF documents and interact with them through natural language queries.
+DocMind AI is an Agentic Retrieval-Augmented Generation (RAG) system for document-based question answering. The project combines semantic retrieval, intelligent query refinement, and response validation to deliver accurate and context-grounded answers from uploaded PDF documents.
 
-Unlike traditional PDF chatbots that rely on a single retrieval and generation step, DocMind AI introduces an intelligent workflow consisting of retrieval, document grading, query rewriting, answer generation, and hallucination validation.
+Built using **LangGraph**, the system orchestrates a multi-step workflow consisting of document retrieval, relevance grading, query rewriting, answer generation, and hallucination detection. Document embeddings are stored in **ChromaDB**, enabling efficient semantic search across uploaded content.
 
-The system dynamically adapts retrieval quality and ensures that generated responses remain grounded in document context.
+To improve reliability, retrieved documents are evaluated through an LLM-based relevance grader, while a query rewriting mechanism helps recover from poor retrieval results. Generated answers are validated against retrieved context to reduce hallucinations and improve trustworthiness.
+
+The workflow is monitored using **LangSmith**, providing end-to-end execution traces for debugging and observability. System performance is evaluated using **RAGAS** metrics such as Faithfulness, Answer Relevancy, and Context Precision to measure retrieval quality and answer grounding.
+
+This project demonstrates modern Agentic AI design patterns, retrieval optimization techniques, workflow observability, and evaluation methodologies used in production-grade RAG systems.
+
 
 ---
 
