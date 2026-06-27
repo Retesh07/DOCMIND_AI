@@ -8,14 +8,7 @@ import os
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-BASE_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")
-)
-
-CHROMA_PATH = os.path.join(
-    BASE_DIR,
-    "chroma_db"
-)
+CHROMA_PATH = "/tmp/chroma_db"
 
 
 def get_embeddings():

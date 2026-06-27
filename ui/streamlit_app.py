@@ -53,7 +53,7 @@ with st.sidebar:
 
     if uploaded_file is not None:
         # Save uploaded file to disk
-        pdf_path = f"uploaded_{uploaded_file.name}"
+        pdf_path = f"/tmp/uploaded_{uploaded_file.name}"
 
         with open(pdf_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
