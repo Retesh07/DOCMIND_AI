@@ -1,15 +1,4 @@
----
-title: Doc Mind AI
-emoji: 🧠
-colorFrom: blue
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
----
 
-# DocMind AI
-Agentic RAG powered by LangGraph
 # 🧠 DocMind AI
 
 # 🚀 Overview
@@ -26,6 +15,12 @@ This project demonstrates modern Agentic AI design patterns, retrieval optimizat
 
 
 ---
+## 🌐 Live Demo
+
+**[DocMind AI — Try it Live](https://retesh-doc-mind-ai.hf.space)**
+
+> Upload any PDF and ask questions. The agentic RAG system retrieves, grades, generates and self-corrects answers strictly from your document.
+
 
 # ✨ Key Features
 
