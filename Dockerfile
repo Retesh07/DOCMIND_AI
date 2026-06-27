@@ -2,6 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Create tmp directories with write permissions
+RUN mkdir -p /tmp/chroma_db && chmod 777 /tmp
+RUN mkdir -p /tmp/uploads && chmod 777 /tmp/uploads
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
