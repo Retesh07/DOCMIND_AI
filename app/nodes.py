@@ -17,7 +17,7 @@ load_dotenv()
 class GradeDocument(BaseModel):
     """Binary score for relevance check on retrieved document."""
     binary_score: str = Field(
-        description="'yes' if relevant to the question, otherwise 'no'"
+        description="'yes' if the chunk contains ANY information that could help answer the question, even partially. Default to 'yes' when uncertain."
     )
 
 class HallucinationCheck(BaseModel):
@@ -63,7 +63,7 @@ def grader_node(state: AgentState):
     structured_llm = llm.with_structured_output(GradeDocument)
 
     grade_prompt = ChatPromptTemplate.from_template("""
-You are a grader assessing the relevance of a retrieved document chunk to a user question.
+You are a lenient grader assessing document chunk relevance.
 
 Retrieved chunk:
 {document}
@@ -71,8 +71,9 @@ Retrieved chunk:
 User question:
 {question}
 
-If the chunk contains keywords or semantic meaning related to the question, grade it as relevant.
-Give a binary score 'yes' or 'no' to indicate whether the chunk is relevant.
+Does this chunk contain ANY information that could help answer the question, even partially?
+When in doubt, answer 'yes'.
+Answer ONLY 'yes' or 'no'.
 """)
 
     grader_chain = grade_prompt | structured_llm
@@ -132,6 +133,7 @@ def generator_node(state: AgentState):
 You are a helpful document assistant.
 
 Answer the question ONLY using the provided context.
+Always respond in complete sentences with sufficient detail.
 
 If the answer is not present in the context, say:
 "I could not find the answer in the document."
@@ -182,17 +184,17 @@ def rewriter_node(state: AgentState):
     print(f"🔄 Rewriting query (attempt {retry_count})")
     
     rewriter_prompt = ChatPromptTemplate.from_template("""
-You are a query rewriter that improves questions for better document retrieval.
+    You are a query rewriter for document retrieval.
 
-The original question failed to retrieve relevant information.
-Rephrase it using different, more specific vocabulary that might better match document language.
+    IMPORTANT RULES:
+    - Keep ALL acronyms, technical terms, and proper nouns EXACTLY as they appear
+    - Only rephrase the question structure  
+    - Do NOT expand or interpret acronyms
+    - Do NOT add information not in the original question
 
-Original question: {question}
+    Original question: {question}
 
-Rewrite the question to be more specific and use alternative vocabulary.
-Return ONLY the rewritten question — no explanation.
-
-Rewritten question:""")
+    Rewritten question:""")
     
     llm = get_fast_llm()
     rewriter_chain = rewriter_prompt | llm | StrOutputParser()
