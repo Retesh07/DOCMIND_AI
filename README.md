@@ -1,3 +1,15 @@
+---
+title: Doc Mind AI
+emoji: 🧠
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
+# DocMind AI
+Agentic RAG powered by LangGraph
 # 🧠 DocMind AI
 
 # 🚀 Overview
