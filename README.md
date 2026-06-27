@@ -1,6 +1,13 @@
 
 # 🧠 DocMind AI
 
+## 🌐 Live Demo
+
+**[DocMind AI — Try it Live](https://retesh-doc-mind-ai.hf.space)**
+
+> Upload any PDF and ask questions. The agentic RAG system retrieves, grades, generates and self-corrects answers strictly from your document.
+
+
 # 🚀 Overview
 
 DocMind AI is an Agentic Retrieval-Augmented Generation (RAG) system for document-based question answering. The project combines semantic retrieval, intelligent query refinement, and response validation to deliver accurate and context-grounded answers from uploaded PDF documents.
@@ -15,12 +22,6 @@ This project demonstrates modern Agentic AI design patterns, retrieval optimizat
 
 
 ---
-## 🌐 Live Demo
-
-**[DocMind AI — Try it Live](https://retesh-doc-mind-ai.hf.space)**
-
-> Upload any PDF and ask questions. The agentic RAG system retrieves, grades, generates and self-corrects answers strictly from your document.
-
 
 # ✨ Key Features
 
