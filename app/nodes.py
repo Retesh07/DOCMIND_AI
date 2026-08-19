@@ -1,31 +1,13 @@
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
 from langchain_core.output_parsers import StrOutputParser
+
 from app.state import AgentState
 from app.vectorstore import load_vectorstore, get_retriever
 from app.rag_chain import format_docs, get_llm, get_fast_llm
+
 from dotenv import load_dotenv
 
 load_dotenv()
-
-
-# ============================================================
-# SCHEMAS (for structured LLM output)
-# ============================================================
-
-class GradeDocument(BaseModel):
-    """Binary score for relevance check on retrieved document."""
-    binary_score: str = Field(
-        description="'yes' if the chunk contains ANY information that could help answer the question, even partially. Default to 'yes' when uncertain."
-    )
-
-class HallucinationCheck(BaseModel):
-    """Check whether answer is grounded in retrieved documents."""
-    
-    binary_score: str = Field(
-        description="'yes' if answer is grounded in documents, otherwise 'no'"
-    )
 
 
 # ============================================================
@@ -35,20 +17,26 @@ class HallucinationCheck(BaseModel):
 
 def retriever_node(state: AgentState):
     question = state["question"]
-    pdf_path = state["pdf_path"]      # ← read from state
+    pdf_path = state["pdf_path"]
 
     print(f"🔍 Retrieving chunks for: {question}")
 
-   
-    vectorstore = load_vectorstore(pdf_path)   # ← pass pdf_path
+    vectorstore = load_vectorstore(pdf_path)
     retriever = get_retriever(vectorstore)
+
     documents = retriever.invoke(question)
 
     print(f"📄 Retrieved {len(documents)} chunks")
-    return {"documents": documents}
+
+    return {
+        "documents": documents
+    }
+
+
 # ============================================================
 # NODE 3: GRADER
-# Uses powerful LLM — filters retrieved chunks by relevance
+# Uses FAST/LOW LLM
+# Filters retrieved chunks by relevance
 # ============================================================
 
 def grader_node(state: AgentState):
@@ -57,13 +45,19 @@ def grader_node(state: AgentState):
 
     if not documents:
         print("⚠️ No documents retrieved — skipping grading")
-        return {"filtered_documents": []}
 
-    llm = get_llm()
-    structured_llm = llm.with_structured_output(GradeDocument)
+        return {
+            "filtered_documents": []
+        }
+
+    # Use FAST model for simple yes/no grading
+    llm = get_fast_llm()
 
     grade_prompt = ChatPromptTemplate.from_template("""
-You are a lenient grader assessing document chunk relevance.
+You are a document relevance grader.
+
+Your task is to determine whether the retrieved document chunk
+contains ANY information that could help answer the user's question.
 
 Retrieved chunk:
 {document}
@@ -71,60 +65,96 @@ Retrieved chunk:
 User question:
 {question}
 
-Does this chunk contain ANY information that could help answer the question, even partially?
-When in doubt, answer 'yes'.
-Answer ONLY 'yes' or 'no'.
+Rules:
+- Answer ONLY with "yes" or "no".
+- Answer "yes" if the chunk contains even partial information
+  that could help answer the question.
+- When uncertain, answer "yes".
+- Do not explain your answer.
 """)
 
-    grader_chain = grade_prompt | structured_llm
+    # No structured output / tool calling.
+    # This avoids Groq tool_use_failed errors.
+    grader_chain = grade_prompt | llm | StrOutputParser()
 
     filtered_docs = []
 
     for doc in documents:
-        result = grader_chain.invoke({
-            "question": question,
-            "document": doc.page_content
-        })
 
-        if isinstance(result, dict):
-            binary_score = result.get("binary_score", "no")
-        elif isinstance(result, BaseModel):
-            binary_score = getattr(result, "binary_score", "no")
-        else:
-            print(f"⚠️ Unexpected grade result format: {type(result)}")
-            binary_score = "no"
+        try:
+            result = grader_chain.invoke({
+                "question": question,
+                "document": doc.page_content
+            })
 
-        if str(binary_score).strip().lower() == "yes":
+            binary_score = str(result).strip().lower()
+
+            # Normalize model output
+            if binary_score.startswith("yes"):
+                binary_score = "yes"
+            else:
+                binary_score = "no"
+
+        except Exception as e:
+            print(f"⚠️ Grader error: {e}")
+
+            # If grader fails, keep the document rather than
+            # accidentally throwing away potentially useful context.
+            binary_score = "yes"
+
+        if binary_score == "yes":
             filtered_docs.append(doc)
-            print(f"✅ Relevant: {doc.page_content[:60]}...")
-        else:
-            print(f"❌ Not relevant: {doc.page_content[:60]}...")
 
-    print(f"📊 Grading complete: {len(filtered_docs)}/{len(documents)} chunks kept")
+            print(
+                f"✅ Relevant: "
+                f"{doc.page_content[:60]}..."
+            )
+
+        else:
+            print(
+                f"❌ Not relevant: "
+                f"{doc.page_content[:60]}..."
+            )
+
+    print(
+        f"📊 Grading complete: "
+        f"{len(filtered_docs)}/{len(documents)} chunks kept"
+    )
 
     if not filtered_docs:
-        return {"filtered_documents": []}
+        return {
+            "filtered_documents": []
+        }
 
-    return {"filtered_documents": filtered_docs}
+    return {
+        "filtered_documents": filtered_docs
+    }
+
 
 # ============================================================
 # NODE 4: GENERATOR
-# Uses powerful LLM — generates answers based on filtered chunks
+# Uses POWERFUL LLM
+# Generates final answer from filtered chunks
 # ============================================================
 
 def generator_node(state: AgentState):
     question = state["question"]
     filtered_documents = state.get("filtered_documents", [])
 
-    # Safety net — graph.py should route around this node entirely
-    # when there are no relevant docs, but we guard here too.
+    # Safety net
     if not filtered_documents:
-        print("⚠️ generator_node called with no filtered documents")
+
+        print(
+            "⚠️ generator_node called with "
+            "no filtered documents"
+        )
+
         return {
             "answer": "I could not find the answer in the document.",
             "sources": []
         }
 
+    # Use POWERFUL model for final answer
     llm = get_llm()
 
     context = format_docs(filtered_documents)
@@ -133,10 +163,14 @@ def generator_node(state: AgentState):
 You are a helpful document assistant.
 
 Answer the question ONLY using the provided context.
-Always respond in complete sentences with sufficient detail.
 
-If the answer is not present in the context, say:
-"I could not find the answer in the document."
+Rules:
+- Use only information from the context.
+- Do not make up information.
+- If the answer is not present in the context, say:
+  "I could not find the answer in the document."
+- Always respond in complete sentences.
+- Provide sufficient detail when the context supports it.
 
 Context:
 {context}
@@ -147,7 +181,11 @@ Question:
 Answer:
 """)
 
-    generation_chain = generation_prompt | llm | StrOutputParser()
+    generation_chain = (
+        generation_prompt
+        | llm
+        | StrOutputParser()
+    )
 
     answer = generation_chain.invoke({
         "context": context,
@@ -163,7 +201,10 @@ Answer:
         for doc in filtered_documents
     ]
 
-    print(f"💬 Generated answer using {len(filtered_documents)} source chunk(s)")
+    print(
+        f"💬 Generated answer using "
+        f"{len(filtered_documents)} source chunk(s)"
+    )
 
     return {
         "answer": answer,
@@ -173,32 +214,48 @@ Answer:
 
 # ============================================================
 # NODE 5: QUERY REWRITER
+# Uses FAST LLM
 # Rephrases question when retrieval quality is poor
-# Uses fast LLM — simple rephrasing task
 # ============================================================
 
 def rewriter_node(state: AgentState):
     question = state["question"]
     retry_count = state.get("retry_count", 0) + 1
 
-    print(f"🔄 Rewriting query (attempt {retry_count})")
-    
+    print(
+        f"🔄 Rewriting query "
+        f"(attempt {retry_count})"
+    )
+
     rewriter_prompt = ChatPromptTemplate.from_template("""
-    You are a query rewriter for document retrieval.
+You are a query rewriter for document retrieval.
 
-    IMPORTANT RULES:
-    - Keep ALL acronyms, technical terms, and proper nouns EXACTLY as they appear
-    - Only rephrase the question structure  
-    - Do NOT expand or interpret acronyms
-    - Do NOT add information not in the original question
+IMPORTANT RULES:
 
-    Original question: {question}
+- Keep ALL acronyms exactly as they appear.
+- Keep ALL technical terms exactly as they appear.
+- Keep ALL proper nouns exactly as they appear.
+- Only rephrase the question structure.
+- Do NOT expand acronyms.
+- Do NOT interpret acronyms.
+- Do NOT add information that was not in the original question.
+- Return ONLY the rewritten question.
 
-    Rewritten question:""")
-    
+Original question:
+{question}
+
+Rewritten question:
+""")
+
+    # Use FAST model
     llm = get_fast_llm()
-    rewriter_chain = rewriter_prompt | llm | StrOutputParser()
-    
+
+    rewriter_chain = (
+        rewriter_prompt
+        | llm
+        | StrOutputParser()
+    )
+
     rewritten_question = rewriter_chain.invoke({
         "question": question
     }).strip()
@@ -213,20 +270,37 @@ def rewriter_node(state: AgentState):
 
 
 # ============================================================
-# NODE 6: Hallucination node
+# NODE 6: HALLUCINATION CHECKER
+# Uses FAST LLM
+# Checks whether final answer is supported by documents
 # ============================================================
+
 def hallucination_checker_node(state: AgentState):
     question = state["question"]
     answer = state["answer"]
-    filtered_documents = state.get("filtered_documents", [])
 
+    filtered_documents = state.get(
+        "filtered_documents",
+        []
+    )
+
+    # No documents means there is nothing to verify.
     if not filtered_documents:
-        return {"hallucination_status": "yes"}  # no docs = skip check = pass
 
-    docs_text = "\n\n".join([doc.page_content for doc in filtered_documents])
+        return {
+            "hallucination_status": "yes"
+        }
+
+    docs_text = "\n\n".join(
+        doc.page_content
+        for doc in filtered_documents
+    )
 
     hallucination_prompt = ChatPromptTemplate.from_template("""
-You are a hallucination checker.
+You are a strict hallucination checker.
+
+Your task is to determine whether the generated answer
+is fully supported by the retrieved documents.
 
 Retrieved Documents:
 {documents}
@@ -234,31 +308,55 @@ Retrieved Documents:
 Generated Answer:
 {answer}
 
-Determine whether the generated answer is fully supported by the retrieved documents.
+Rules:
 
-Return:
-- yes -> if answer is grounded in documents
-- no -> if answer contains information not supported by documents
+- Answer ONLY with "yes" or "no".
+- Answer "yes" if the answer is fully supported by the documents.
+- Answer "no" if the answer contains information that is
+  not supported by the documents.
+- Do not explain your answer.
+
+Answer:
 """)
 
-    llm = get_llm()
-    structured_llm = llm.with_structured_output(HallucinationCheck)
-    hallucination_chain = hallucination_prompt | structured_llm
+    # Use FAST model.
+    # Do NOT use with_structured_output().
+    llm = get_fast_llm()
 
-    result = hallucination_chain.invoke({
-        "documents": docs_text,
-        "answer": answer
-    })
+    hallucination_chain = (
+        hallucination_prompt
+        | llm
+        | StrOutputParser()
+    )
 
-    if isinstance(result, dict):
-        score = result.get("binary_score", "yes")
-    elif isinstance(result, BaseModel):
-        score = getattr(result, "binary_score", "yes")
-    else:
+    try:
+
+        result = hallucination_chain.invoke({
+            "documents": docs_text,
+            "answer": answer
+        })
+
+        score = str(result).strip().lower()
+
+        # Normalize model output
+        if score.startswith("yes"):
+            score = "yes"
+        else:
+            score = "no"
+
+    except Exception as e:
+
+        print(
+            f"⚠️ Hallucination checker error: {e}"
+        )
+
+        # Fail safely.
         score = "yes"
 
-    score = str(score).strip().lower()
+    print(
+        f"🧠 Hallucination Check: {score}"
+    )
 
-    print(f"🧠 Hallucination Check: {score}")
-
-    return {"hallucination_status": score}  # ← no retry_count here
+    return {
+        "hallucination_status": score
+    }
