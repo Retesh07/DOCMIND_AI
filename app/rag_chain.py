@@ -11,30 +11,16 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 load_dotenv()
 
 def get_llm():
-    """
-    Powerful model — used for:
-    - Generator node (producing final answer)
-    - Hallucination Checker node (verifying answer)
-    """
     return ChatGroq(
-        
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         temperature=0
     )
 
 def get_fast_llm():
-    """
-    Lightweight model — used for:
-    - Router node (simple retrieve/not_related decision)
-    - Grader node (simple yes/no relevance decision)
-    Faster + uses fewer tokens
-    """
     return ChatGroq(
-    
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-20b",
         temperature=0
     )
-
 def get_prompt_template():
     template = """You are a helpful assistant that answers questions 
 based ONLY on the provided context.
