@@ -1,14 +1,24 @@
 import os
-from langchain_community.vectorstores import Chroma
+import hashlib
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from app.ingestion import load_and_split_pdf
 from langchain_chroma import Chroma
 import warnings
-import os
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 CHROMA_PATH = "/tmp/chroma_db"
+
+
+def get_pdf_hash(pdf_path: str) -> str:
+    """Return a stable identifier derived from the PDF's content."""
+    hasher = hashlib.sha256()
+
+    with open(pdf_path, "rb") as file:
+        for block in iter(lambda: file.read(8192), b""):
+            hasher.update(block)
+
+    return hasher.hexdigest()[:16]
 
 
 def get_embeddings():
@@ -23,7 +33,8 @@ def get_embeddings():
 def get_or_create_vectorstore(pdf_path: str):
     embeddings = get_embeddings()
     pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
-    db_path = os.path.join(CHROMA_PATH, pdf_name)
+    pdf_hash = get_pdf_hash(pdf_path)
+    db_path = os.path.join(CHROMA_PATH, f"{pdf_name}_{pdf_hash}")
     os.makedirs(db_path, exist_ok=True)
 
     # Check if vectorstore already exists
@@ -56,10 +67,11 @@ def load_vectorstore(pdf_path: str):
     pdf_name = os.path.splitext(
         os.path.basename(pdf_path)
     )[0]
+    pdf_hash = get_pdf_hash(pdf_path)
 
     db_path = os.path.join(
         CHROMA_PATH,
-        pdf_name
+        f"{pdf_name}_{pdf_hash}"
     )
 
     vectorstore = Chroma(

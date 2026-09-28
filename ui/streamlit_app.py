@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 import os
+import hashlib
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -33,6 +34,9 @@ if "vectorstore" not in st.session_state:
 if "pdf_path" not in st.session_state:
     st.session_state.pdf_path = None
 
+if "pdf_hash" not in st.session_state:
+    st.session_state.pdf_hash = None
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
@@ -54,15 +58,18 @@ with st.sidebar:
     if uploaded_file is not None:
         # Save uploaded file to disk
         pdf_path = f"/tmp/uploaded_{uploaded_file.name}"
+        file_bytes = uploaded_file.getvalue()
+        file_hash = hashlib.sha256(file_bytes).hexdigest()[:16]
 
         with open(pdf_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+            f.write(file_bytes)
 
-        # Process only if new file
-        if st.session_state.pdf_path != pdf_path:
+        # Process only if the uploaded file content is new
+        if st.session_state.pdf_hash != file_hash:
             with st.spinner("Processing PDF..."):
                 st.session_state.vectorstore = get_or_create_vectorstore(pdf_path)
                 st.session_state.pdf_path = pdf_path
+                st.session_state.pdf_hash = file_hash
                 st.session_state.pdf_processed = True
                 st.session_state.chat_history = []  # reset chat
 
