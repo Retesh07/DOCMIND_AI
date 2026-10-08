@@ -1,12 +1,4 @@
----
-title: Doc Mind AI
-emoji: 🧠
-colorFrom: blue
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
----
+
 
 # 🧠 DocMind AI: Agentic RAG System
 > **An intelligent, self-correcting Document Question-Answering system powered by LangGraph, ChromaDB, Groq LLMs, and SHA-256 content-addressable caching.**
